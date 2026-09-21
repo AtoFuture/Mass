@@ -1,0 +1,29 @@
+# SmartMaaS Gateway 依赖（§11.3 要求提供 requirements.txt）
+#
+# Python 版本：§18 编码协议写的是 3.11。
+# 本机实测可用版本见 README"环境说明"一节 —— 3.11 / 3.12 均可，
+# 不要用 3.13+，部分依赖的 wheel 还不全。
+
+# --- Web 框架与 HTTP ---
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.32,<1.0
+httpx>=0.27,<1.0
+pydantic>=2.9,<3.0
+PyYAML>=6.0,<7.0
+
+# --- L2 缓存（B，§7 P0-25）---
+redis>=5.0,<6.0
+
+# --- 测试与代码质量（§18：提交前 ruff check . && pytest -q）---
+pytest>=8.3,<9.0
+pytest-asyncio>=0.24,<1.0
+ruff>=0.7,<1.0
+
+# --- 压测（C，§10）---
+locust>=2.32,<3.0
+
+# --- 语义缓存（B，P1，§7 P1-26）---
+# 体积大，P0 做完之前不要装。真要装时建议单独放 requirements-semantic.txt，
+# 避免拖慢其他两人的环境搭建。
+# sentence-transformers>=3.0,<4.0
+# numpy>=1.26,<3.0

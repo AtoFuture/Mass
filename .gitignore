@@ -1,0 +1,36 @@
+# --- 密钥与本机配置（§13.3 代码评审协议：不包含明文密码/API Key）---
+.env
+.env.*
+!.env.example
+# config.yaml 是本机实际配置（含内网地址、端口），只提交 config.example.yaml
+config/config.yaml
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+
+# --- 测试与工具缓存 ---
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- 压测与实验原始数据（§10.5：原始数据要保存，但不适合全进仓库）---
+# 如果决定入库，请先确认体积；大文件建议放 docs/ 之外的存储并只提交汇总 CSV
+benchmark/results/
+*.locust.stats.csv
+*.locust.failures.csv
+
+# --- 编辑器 / 系统 ---
+.vscode/
+.idea/
+.DS_Store
+*.swp

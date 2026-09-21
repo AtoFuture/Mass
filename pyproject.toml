@@ -1,0 +1,37 @@
+[project]
+name = "smartmaas-gateway"
+version = "0.1.0"
+description = "MaaS 平台的智能路由与多级缓存引擎（中国电子杯第三届 ICT 大赛 赛题七）"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501", # 行长由 formatter 管，不在 lint 里报
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试里允许 assert 和较长的构造代码
+"tests/**" = ["S101", "E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 让 pytest 能 import app.* / mock.*，无需安装成包
+pythonpath = ["."]
+asyncio_mode = "auto"
+addopts = "-q --strict-markers"
+markers = [
+    "integration: 需要真实网络或外部服务的测试",
+]

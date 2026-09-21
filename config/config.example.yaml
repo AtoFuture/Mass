@@ -1,0 +1,89 @@
+# SmartMaaS Gateway 配置示例（§16 配置协议）
+#
+# 【脱敏说明】本文件会被提交进仓库，因此：
+#   - 不写任何真实 Token / 密码 / 内网地址
+#   - 密钥只写**环境变量名**，真实值放 .env（.env 已在 .gitignore 里）
+#
+# 用法：cp config/config.example.yaml config/config.yaml
+#      config/config.yaml 是本机实际配置，不入库，可以随便改地址和端口。
+
+server:
+  host: 0.0.0.0
+  port: 8000
+  # 网关全局最大并发（§6 P0-20）
+  max_concurrency: 100
+
+routing:
+  # round_robin | least_conn | dynamic
+  # 初始建议用 round_robin 跑通链路，B 完成 dynamic 后再切
+  strategy: round_robin
+  health_check_interval_s: 3
+  circuit_breaker_failures: 5
+
+  # 动态评分权重（§5 P0-14 的 α β γ δ η）
+  # 【重要】这些是初值。§5 原文要求最终用实验数据调整，
+  # 报告中不得把拍脑袋的权重描述成"最优"。
+  weights:
+    concurrency: 0.35
+    latency: 0.30
+    gpu_memory: 0.20
+    error: 0.10
+    prefix_affinity: 0.25
+
+cache:
+  enabled: true
+  l1:
+    max_items: 1000
+    ttl_s: 300
+  redis:
+    enabled: true
+    url: redis://redis:6379/0
+    ttl_s: 1800
+  semantic:
+    # P1，先关。§22 风险清单点名"语义缓存误命中"
+    enabled: false
+    threshold: 0.92
+  prefix:
+    enabled: true
+
+security:
+  # 管理接口 Token 从**这个环境变量**读取，值本身不写在这里（§3 P1-06）
+  admin_token_env: SMARTMAAS_ADMIN_TOKEN
+  require_user_auth: false
+
+# ---------------------------------------------------------------------------
+# 后端实例（§4 P0-07 / P0-09）
+#
+# 一个逻辑模型可以对应多个实例：下面的三条都是 model: qwen2.5，
+# 网关会在这三个实例之间调度。id 必须唯一。
+#
+# 默认指向 docker-compose 里的三个 Mock 服务，`docker compose up` 后即可用。
+# 接真实 vLLM 时把 base_url 换成 vLLM 地址、id 换成实例名即可，例如：
+#   - id: qwen-a
+#     model: qwen2.5
+#     base_url: http://10.0.0.11:8000
+#     timeout_s: 120
+#     max_concurrency: 16
+# 注意：真实内网地址不要提交，写在 config/config.yaml 里。
+# ---------------------------------------------------------------------------
+backends:
+  - id: mock-fast
+    model: qwen2.5
+    base_url: http://mock-fast:9001
+    weight: 1
+    timeout_s: 120
+    max_concurrency: 16
+
+  - id: mock-mid
+    model: qwen2.5
+    base_url: http://mock-mid:9002
+    weight: 1
+    timeout_s: 120
+    max_concurrency: 16
+
+  - id: mock-slow
+    model: qwen2.5
+    base_url: http://mock-slow:9003
+    weight: 1
+    timeout_s: 120
+    max_concurrency: 16

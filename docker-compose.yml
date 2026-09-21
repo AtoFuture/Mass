@@ -1,0 +1,83 @@
+# 一键启动（§11.3、§21 演示脚本第 3 步"启动 Docker Compose"）
+#
+#   docker compose up --build
+#
+# 起 5 个服务：网关 + Redis + 三个刻意配成不同速度的 Mock 后端。
+# 三个 Mock 的时延刻意拉开档次，用来演示智能路由和慢节点剔除：
+#
+#   mock-fast  prefill 120ms  per-token 8ms    模拟空闲 GPU
+#   mock-mid   prefill 700ms  per-token 25ms   模拟中等负载
+#   mock-slow  prefill 2500ms per-token 60ms   模拟重载节点，演示时用
+#              POST /mock/config 把它调得更慢来触发熔断
+
+x-mock-base: &mock-base
+  build: .
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=2).status==200 else 1)"]
+    interval: 10s
+    timeout: 3s
+    retries: 3
+    start_period: 5s
+
+services:
+  gateway:
+    build: .
+    container_name: smartmaas-gateway
+    ports:
+      - "8000:8000"
+    volumes:
+      # 挂载本机配置，改 config.yaml 不必重新构建镜像
+      - ./config:/app/config:ro
+    environment:
+      # 从 .env 读取；未设置时管理接口无鉴权（仅限本地开发）
+      SMARTMAAS_ADMIN_TOKEN: ${SMARTMAAS_ADMIN_TOKEN:-}
+      SMARTMAAS_LOG_LEVEL: ${SMARTMAAS_LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+      mock-fast:
+        condition: service_started
+      mock-mid:
+        condition: service_started
+      mock-slow:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: smartmaas-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mock-fast:
+    <<: *mock-base
+    container_name: smartmaas-mock-fast
+    command: ["python", "-m", "mock.mock_server", "--name", "mock-fast", "--host", "0.0.0.0", "--port", "9000", "--prefill-ms", "120", "--per-token-ms", "8", "--gpu-memory-ratio", "0.15"]
+    ports:
+      - "9001:9000"
+
+  mock-mid:
+    <<: *mock-base
+    container_name: smartmaas-mock-mid
+    command: ["python", "-m", "mock.mock_server", "--name", "mock-mid", "--host", "0.0.0.0", "--port", "9000", "--prefill-ms", "700", "--per-token-ms", "25", "--gpu-memory-ratio", "0.55"]
+    ports:
+      - "9002:9000"
+
+  mock-slow:
+    <<: *mock-base
+    container_name: smartmaas-mock-slow
+    command: ["python", "-m", "mock.mock_server", "--name", "mock-slow", "--host", "0.0.0.0", "--port", "9000", "--prefill-ms", "2500", "--per-token-ms", "60", "--gpu-memory-ratio", "0.9", "--fail-period-s", "90", "--fail-duration-s", "25"]
+    ports:
+      - "9003:9000"
